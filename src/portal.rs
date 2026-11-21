@@ -5,18 +5,33 @@
 
 use std::future::Future;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use anyhow::{anyhow, Context, Result};
 use ashpd::desktop::file_chooser::{FileFilter, SelectedFiles};
 use ashpd::desktop::screenshot::Screenshot;
 use ashpd::desktop::ResponseError;
 use image::RgbaImage;
+use tokio::runtime::Runtime;
 
+/// Run a portal future on the process-wide runtime.
+///
+/// The runtime must live as long as the process: ashpd caches one global D-Bus
+/// connection, and zbus runs that connection's reader task on the runtime that
+/// created it. With a throwaway runtime per call, the second request would wait
+/// forever for a reply nobody reads (the "second snip does nothing" bug).
 fn block_on<F: Future>(fut: F) -> Result<F::Output> {
-    let rt = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .context("cannot start async runtime")?;
+    static RUNTIME: OnceLock<std::io::Result<Runtime>> = OnceLock::new();
+    let rt = RUNTIME
+        .get_or_init(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(1)
+                .thread_name("portal")
+                .enable_all()
+                .build()
+        })
+        .as_ref()
+        .map_err(|e| anyhow!("cannot start async runtime: {e}"))?;
     Ok(rt.block_on(fut))
 }
 
@@ -86,5 +101,35 @@ pub fn save_file_dialog(suggested_name: &str) -> Result<Option<PathBuf>> {
         Ok(files) => Ok(files.uris().first().and_then(|u| u.to_file_path().ok())),
         Err(ashpd::Error::Response(ResponseError::Cancelled)) => Ok(None),
         Err(e) => Err(e).context("save dialog via xdg-desktop-portal failed"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ashpd::desktop::settings::Settings;
+
+    async fn read_color_scheme() -> ashpd::Result<()> {
+        Settings::new().await?.color_scheme().await?;
+        Ok(())
+    }
+
+    /// Needs a desktop session with xdg-desktop-portal: `cargo test -- --ignored`.
+    /// Regression test for requests after the first one hanging forever.
+    #[test]
+    #[ignore]
+    fn portal_works_for_repeated_requests() {
+        for i in 0..3 {
+            let (tx, rx) = std::sync::mpsc::channel();
+            // Each request from a fresh thread, like the capture / save dialog threads.
+            std::thread::spawn(move || {
+                let _ = tx.send(block_on(read_color_scheme()).map(|r| r.is_ok()));
+            });
+            let ok = rx
+                .recv_timeout(std::time::Duration::from_secs(5))
+                .unwrap_or_else(|_| panic!("portal request #{i} hung"))
+                .expect("runtime");
+            assert!(ok, "portal request #{i} failed");
+        }
     }
 }
