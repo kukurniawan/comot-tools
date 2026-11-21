@@ -15,6 +15,7 @@ pub fn run(shot: RgbaImage) -> anyhow::Result<Option<RgbaImage>> {
         viewport: egui::ViewportBuilder::default()
             .with_title("Snipping Tool — select area")
             .with_app_id("snipping-tool")
+            .with_icon(crate::icon::window_icon())
             .with_fullscreen(true)
             .with_decorations(false),
         ..Default::default()

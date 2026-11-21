@@ -10,6 +10,8 @@ mod capture;
 mod document;
 mod editor;
 mod gfx;
+mod icon;
+mod install;
 mod portal;
 mod selector;
 mod session;
@@ -26,6 +28,9 @@ USAGE:
 OPTIONS:
     -s, --snip     Start a new snip immediately (bind this to a keyboard shortcut)
     -f, --full     Use full-screen mode instead of rectangle selection
+        --install  Install into ~/.local (binary, app-menu entry and icon)
+        --uninstall
+                   Remove what --install added
     -h, --help     Show this help
 ";
 
@@ -35,6 +40,18 @@ fn main() {
 
     if has(&["-h", "--help"]) {
         print!("{USAGE}");
+        return;
+    }
+    if has(&["--install"]) || has(&["--uninstall"]) {
+        let result = if has(&["--install"]) {
+            install::install()
+        } else {
+            install::uninstall()
+        };
+        if let Err(e) = result {
+            eprintln!("error: {e:#}");
+            std::process::exit(1);
+        }
         return;
     }
 

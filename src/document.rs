@@ -179,7 +179,7 @@ impl Document {
 
         // tiny-skia works with premultiplied alpha.
         let mut data = base.as_raw().clone();
-        for px in data.chunks_exact_mut(4) {
+        for px in data.as_chunks_mut::<4>().0 {
             let a = u32::from(px[3]);
             if a < 255 {
                 for c in &mut px[..3] {
@@ -196,7 +196,7 @@ impl Document {
         }
 
         let mut out = pixmap.take();
-        for px in out.chunks_exact_mut(4) {
+        for px in out.as_chunks_mut::<4>().0 {
             let a = u32::from(px[3]);
             if a > 0 && a < 255 {
                 for c in &mut px[..3] {

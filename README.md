@@ -26,15 +26,31 @@ source ~/.cargo/env
 
 cargo run --release                 # buka editor
 cargo run --release -- --snip       # langsung snip
-cargo test                          # unit test (render pen/highlighter, crop, undo, eraser)
+cargo test                          # unit test (render pen/highlighter, crop, undo, eraser, ikon)
 ```
 
 Tidak butuh paket `-dev` atau `pkg-config`: semua dependency murni Rust, dan library Wayland/X11/EGL dimuat saat runtime.
 
+### Pasang ke menu aplikasi (dengan ikon)
+
+```bash
+cargo build --release
+./target/release/snipping-tool --install     # pasang
+snipping-tool --uninstall                    # hapus lagi
+```
+
+`--install` menyalin binary ke `~/.local/bin`, ikon (16–512 px) ke `~/.local/share/icons/hicolor`, dan
+`snipping-tool.desktop` ke `~/.local/share/applications`. Di Wayland, ikon jendela diambil dari file
+`.desktop` yang cocok dengan app id `snipping-tool`, jadi langkah ini diperlukan agar ikon tampil di
+dock dan Alt+Tab. Ikon digambar di kode (`src/icon.rs`), tanpa file gambar terpisah.
+
+Bonus: kalau dibuka dari menu aplikasi, portal mengenali aplikasi ini sebagai `snipping-tool`
+(bukan terminal), sehingga GNOME bisa menanyakan izin screenshot untuk aplikasi ini sendiri.
+
 ### Shortcut keyboard global (seperti Win+Shift+S)
 
 GNOME: *Settings → Keyboard → View and Customize Shortcuts → Custom Shortcuts*, tambahkan
-perintah `/path/ke/target/release/snipping-tool --snip`.
+perintah `snipping-tool --snip` (setelah `--install`).
 
 ## Cara kerja
 
@@ -60,7 +76,9 @@ src/
 ├── editor.rs    jendela utama: toolbar, kanvas, tool
 ├── document.rs  gambar + coretan, undo/redo, crop, render
 ├── session.rs   pengaturan, clipboard, simpan file
-└── gfx.rs       helper gambar (texture, dim, label)
+├── gfx.rs       helper gambar (texture, dim, label)
+├── icon.rs      ikon aplikasi (digambar dengan tiny-skia)
+└── install.rs   --install / --uninstall ke ~/.local
 ```
 
 ## Keterbatasan

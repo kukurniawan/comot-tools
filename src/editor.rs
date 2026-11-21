@@ -52,6 +52,7 @@ pub fn run(session: &mut Session) -> anyhow::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_title("Snipping Tool")
             .with_app_id("snipping-tool")
+            .with_icon(crate::icon::window_icon())
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([560.0, 320.0]),
         ..Default::default()
@@ -519,7 +520,7 @@ impl EditorApp {
                             self.crop_start = None;
                             let too_small = self
                                 .crop_sel
-                                .map_or(true, |r| r.width() * scale < 3.0 || r.height() * scale < 3.0);
+                                .is_none_or(|r| r.width() * scale < 3.0 || r.height() * scale < 3.0);
                             if too_small {
                                 self.crop_sel = None;
                             }
